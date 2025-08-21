@@ -31,13 +31,12 @@ class Model {
     var score: Int = 0
     var gameover: Boolean = false
 
-    public var newTiles: Array<Pair<Int, Int>> by mutableStateOf(
-        arrayOf()
-    )
+    public var newTiles: MutableList<Pair<Int, Int>> = mutableListOf()
 
     init {
         placeNewTile()
         placeNewTile()
+        newTiles = mutableListOf()
     }
 
     public fun getColor(value: Int): Color {
@@ -296,10 +295,12 @@ class Model {
             return false;
         }
 
-        val index = emptySlots[(0..(emptySlots.size - 1)).random()]
+        val index = emptySlots.random()
         val type = if ((0..9).random() == 0) 4 else 2
 
         board[index.first][index.second] = type
+
+        newTiles.add(Pair(index.first, index.second))
 
         return true;
 
