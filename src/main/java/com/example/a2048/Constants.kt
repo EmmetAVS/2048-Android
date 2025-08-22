@@ -21,4 +21,10 @@ class Constants {
 
     }
 
+    object Numerical {
+
+        val ANIMATION_TIME_DELAY = 500L
+
+    }
+
 }

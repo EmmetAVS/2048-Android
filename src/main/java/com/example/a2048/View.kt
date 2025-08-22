@@ -2,8 +2,10 @@ package com.example.a2048
 
 import android.util.Log
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +31,7 @@ fun GameView(model: Model) {
     val gameover = model.gameover
     var totalX = 0f
     var totalY = 0f
+    val version = model.version
 
     Column(
         modifier = Modifier
@@ -105,10 +109,10 @@ fun GameView(model: Model) {
 
                 for (c in 0..3) {
 
-                    val text: String = if (board[r][c] == 0) "" else "${board[r][c]}"
-                    val color = if (board[r][c] == 0) Constants.Theme.BOX_COLOR else model.getColor(board[r][c])
+                    val text: String = if (board[r][c].value == 0) "" else "${board[r][c].value}"
+                    val color = if (board[r][c].value == 0) Constants.Theme.BOX_COLOR else model.getColor(board[r][c].value)
 
-                    //Animation
+                    //Animation for new tiles
                     val isNew = model.newTiles.contains(Pair(r, c))
 
                     var animationPhase by remember(isNew) { mutableIntStateOf(if (isNew) 0 else 2) }
@@ -134,6 +138,19 @@ fun GameView(model: Model) {
                         }
                     )
 
+                    //Animation for moving
+                    val isMoving = board[r][c].moving
+                    val offsetX = (board[r][c].newCol - board[r][c].col).toFloat()
+                    val offsetY = (board[r][c].newRow - board[r][c].row).toFloat()
+
+                    val offset by animateOffsetAsState(
+                        targetValue = if (isMoving) Offset(offsetX, offsetY) else Offset(0f, 0f),
+                        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+                    )
+
+                    val offsetXVal = if (isMoving) offset.x * Constants.Style.BOX_SIZE else 0.dp
+                    val offsetYVal = if (isMoving) offset.y * Constants.Style.BOX_SIZE else 0.dp
+
                     Box(
                         modifier = Modifier
                             .size(Constants.Style.BOX_SIZE)
@@ -141,19 +158,35 @@ fun GameView(model: Model) {
                                 scaleX = scale
                                 scaleY = scale
                             }
-                            .background(color)
+                            .background(Constants.Theme.BOX_COLOR)
                             .border(Constants.Style.BORDER_WIDTH, Constants.Theme.BORDER_COLOR),
                         contentAlignment = Alignment.Center
                     ) {
 
-                        Text(
-                            text = text,
-                            color = Constants.Theme.TEXT_COLOR,
-                            fontSize = Constants.Style.FONT_SIZE / 2,
-                            textAlign = TextAlign.Center
-                        )
+                        Box(
+
+                            modifier = Modifier
+                                .size(Constants.Style.BOX_SIZE)
+                                .offset(offsetXVal, offsetYVal)
+                                .background(color)
+                                .graphicsLayer {
+                                    shadowElevation = if (isMoving) 10f else 0f
+                                },
+                            contentAlignment = Alignment.Center
+
+                        ) {
+
+                            Text(
+                                text = text,
+                                color = Constants.Theme.TEXT_COLOR,
+                                fontSize = Constants.Style.FONT_SIZE / 2,
+                                textAlign = TextAlign.Center
+                            )
+
+                        }
 
                     }
+
                 }
 
             }
