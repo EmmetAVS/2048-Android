@@ -21,6 +21,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.times
+import androidx.compose.ui.zIndex
 import kotlin.math.abs
 
 @Composable
@@ -108,9 +109,7 @@ fun GameView(model: Model) {
             Row {
 
                 for (c in 0..3) {
-
-                    val text: String = if (board[r][c].value == 0) "" else "${board[r][c].value}"
-                    val color = if (board[r][c].value == 0) Constants.Theme.BOX_COLOR else model.getColor(board[r][c].value)
+                    var value by remember(board[r][c].id) {mutableIntStateOf(board[r][c].value)}
 
                     //Animation for new tiles
                     val isNew = model.newTiles.contains(Pair(r, c))
@@ -126,8 +125,8 @@ fun GameView(model: Model) {
                         targetValue = targetScale,
                         animationSpec = when (animationPhase) {
                             0 -> tween(durationMillis = 0)
-                            1 -> tween(durationMillis = 150, easing = FastOutSlowInEasing)
-                            else -> tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                            1 -> tween(durationMillis = Constants.Numerical.ANIMATION_TIME_DELAY.toInt(), easing = FastOutSlowInEasing)
+                            else -> tween(durationMillis = 0, easing = LinearOutSlowInEasing)
                         },
                         finishedListener = {
                             when (animationPhase) {
@@ -140,8 +139,14 @@ fun GameView(model: Model) {
 
                     //Animation for moving
                     val isMoving = board[r][c].moving
-                    val offsetX = (board[r][c].newCol - board[r][c].col).toFloat()
-                    val offsetY = (board[r][c].newRow - board[r][c].row).toFloat()
+                    val offsetX = if (isMoving) (board[r][c].newCol - board[r][c].col).toFloat() else 0f
+                    val offsetY = if (isMoving) (board[r][c].newRow - board[r][c].row).toFloat() else 0f
+
+                    if (!isMoving && !model.animating) {
+                        value = board[r][c].value
+                    }
+                    val text: String = if (value == 0) "" else "${value}"
+                    val color = if (value == 0) Constants.Theme.BOX_COLOR else model.getColor(value)
 
                     val offset by animateOffsetAsState(
                         targetValue = if (isMoving) Offset(offsetX, offsetY) else Offset(0f, 0f),

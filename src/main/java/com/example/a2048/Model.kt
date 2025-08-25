@@ -14,65 +14,58 @@ import kotlin.math.log2
 
 class BoardItem(var row: Int, var col: Int, var value: Int = 0) {
 
-    var newRow = row;
+    var newRow = row
     var newCol = col
-
     var moving = false
+    var id = BoardItem.id ++
 
     fun moveTo(newRow: Int, newCol: Int) {
-
-        this.newCol = newCol;
-        this.newRow = newRow;
+        this.newCol = newCol
+        this.newRow = newRow
         this.moving = true
+    }
 
+    fun resetPosition() {
+        this.row = this.newRow
+        this.col = this.newCol
+        this.moving = false
     }
 
     companion object {
-        fun genBoard(rows: Int, cols: Int): MutableList<MutableList<BoardItem>> {
 
+        var id = 0
+        fun genBoard(rows: Int, cols: Int): MutableList<MutableList<BoardItem>> {
             val board: MutableList<MutableList<BoardItem>> = mutableListOf()
 
             for (row in 0..(rows - 1)) {
-
                 val currentRow: MutableList<BoardItem> = mutableListOf()
 
                 for (col in 0..(cols - 1)) {
-
                     currentRow.add(BoardItem(row, col))
-
                 }
 
                 board.add(currentRow)
-
             }
 
             return board
-
         }
     }
-
 }
 
 class Model {
 
     public enum class MoveDirection {
-
         Left,
         Right,
         Up,
         Down
-
     }
 
     var board: MutableList<MutableList<BoardItem>> = BoardItem.genBoard(4, 4)
-
     var score: Int = 0
     var gameover: Boolean = false
-
     var version by mutableIntStateOf(0)
-
     public var newTiles: MutableList<Pair<Int, Int>> = mutableListOf()
-
     var animating: Boolean = false
 
     init {
@@ -83,43 +76,233 @@ class Model {
     }
 
     fun getColor(value: Int): Color {
-
         val hue = (30 * log2(value.toDouble())) % 360
         return Color.hsv(hue.toFloat(), 0.4f, 0.9f)
-
     }
 
     fun handleMove(direction: MoveDirection) {
-
         if (gameover || animating)
             return
 
-        var madeChanges: Boolean
-
-        if (direction == MoveDirection.Left || direction == MoveDirection.Right) {
-            madeChanges = moveHorizontal(direction)
-        } else {
-            madeChanges = moveVertical(direction)
+        val madeChanges = when (direction) {
+            MoveDirection.Left -> moveLeft()
+            MoveDirection.Right -> moveRight()
+            MoveDirection.Up -> moveUp()
+            MoveDirection.Down -> moveDown()
         }
 
-        gameover = checkGameOver()
-        animating = true
-        Timer().schedule(Constants.Numerical.ANIMATION_TIME_DELAY) {
-            animating = false
-            handleMovesAndMerges()
+        if (madeChanges) {
+            animating = true
+            Timer().schedule(Constants.Numerical.ANIMATION_TIME_DELAY) {
+                for (r in 0..3) {
+                    for (c in 0..3) {
+                        board[r][c].newRow = r;
+                        board[r][c].newCol = c;
+                        board[r][c].resetPosition()
+                    }
+                }
 
-            if (madeChanges) {
-
+                animating = false
                 placeNewTile()
+                gameover = checkGameOver()
+                version++
+            }
+            version++
+        }
+    }
 
+    private fun moveLeft(): Boolean {
+        var madeChanges = false
+
+        for (r in 0..3) {
+            val row = mutableListOf<BoardItem>()
+
+            for (c in 0..3) {
+                if (board[r][c].value != 0) {
+                    row.add(board[r][c])
+                }
             }
 
-            version ++
+            val merged = mutableListOf<BoardItem>()
+            var i = 0
+            while (i < row.size) {
+                if (i + 1 < row.size && row[i].value == row[i + 1].value) {
+                    //Merge
+                    val mergedTile = BoardItem(r, merged.size, row[i].value * 2)
+                    merged.add(mergedTile)
+                    score += mergedTile.value
+
+                    row[i].moveTo(r, merged.size - 1)
+                    row[i + 1].moveTo(r, merged.size - 1)
+
+                    i += 2
+                } else {
+                    val newTile = BoardItem(r, merged.size, row[i].value)
+                    merged.add(newTile)
+
+                    if (row[i].col != merged.size - 1) {
+                        row[i].moveTo(r, merged.size - 1)
+                    }
+
+                    i++
+                }
+            }
+
+            for (c in 0..3) {
+                val newValue = if (c < merged.size) merged[c].value else 0
+                if (board[r][c].value != newValue) {
+                    madeChanges = true
+                }
+                board[r][c].value = newValue
+            }
         }
 
-        Log.d("", "gameover: $gameover")
-        version ++
+        return madeChanges
+    }
 
+    private fun moveRight(): Boolean {
+        var madeChanges = false
+
+        for (r in 0..3) {
+            val row = mutableListOf<BoardItem>()
+
+            for (c in 3 downTo 0) {
+                if (board[r][c].value != 0) {
+                    row.add(board[r][c])
+                }
+            }
+
+            val merged = mutableListOf<BoardItem>()
+            var i = 0
+            while (i < row.size) {
+                if (i + 1 < row.size && row[i].value == row[i + 1].value) {
+                    val mergedTile = BoardItem(r, 3 - merged.size, row[i].value * 2)
+                    merged.add(mergedTile)
+                    score += mergedTile.value
+
+                    row[i].moveTo(r, 3 - merged.size + 1)
+                    row[i + 1].moveTo(r, 3 - merged.size + 1)
+
+                    i += 2
+                } else {
+                    val newTile = BoardItem(r, 3 - merged.size, row[i].value)
+                    merged.add(newTile)
+
+                    if (row[i].col != 3 - merged.size + 1) {
+                        row[i].moveTo(r, 3 - merged.size + 1)
+                    }
+
+                    i++
+                }
+            }
+
+            for (c in 0..3) {
+                val newValue = if (3 - c < merged.size) merged[3 - c].value else 0
+                if (board[r][c].value != newValue) {
+                    madeChanges = true
+                }
+                board[r][c].value = newValue
+            }
+        }
+
+        return madeChanges
+    }
+
+    private fun moveUp(): Boolean {
+        var madeChanges = false
+
+        for (c in 0..3) {
+            val col = mutableListOf<BoardItem>()
+
+            for (r in 0..3) {
+                if (board[r][c].value != 0) {
+                    col.add(board[r][c])
+                }
+            }
+
+            val merged = mutableListOf<BoardItem>()
+            var i = 0
+            while (i < col.size) {
+                if (i + 1 < col.size && col[i].value == col[i + 1].value) {
+
+                    val mergedTile = BoardItem(merged.size, c, col[i].value * 2)
+                    merged.add(mergedTile)
+                    score += mergedTile.value
+
+                    col[i].moveTo(merged.size - 1, c)
+                    col[i + 1].moveTo(merged.size - 1, c)
+
+                    i += 2
+                } else {
+                    val newTile = BoardItem(merged.size, c, col[i].value)
+                    merged.add(newTile)
+
+                    if (col[i].row != merged.size - 1) {
+                        col[i].moveTo(merged.size - 1, c)
+                    }
+
+                    i++
+                }
+            }
+
+            for (r in 0..3) {
+                val newValue = if (r < merged.size) merged[r].value else 0
+                if (board[r][c].value != newValue) {
+                    madeChanges = true
+                }
+                board[r][c].value = newValue
+            }
+        }
+
+        return madeChanges
+    }
+
+    private fun moveDown(): Boolean {
+        var madeChanges = false
+
+        for (c in 0..3) {
+            val col = mutableListOf<BoardItem>()
+
+            for (r in 3 downTo 0) {
+                if (board[r][c].value != 0) {
+                    col.add(board[r][c])
+                }
+            }
+
+            val merged = mutableListOf<BoardItem>()
+            var i = 0
+            while (i < col.size) {
+                if (i + 1 < col.size && col[i].value == col[i + 1].value) {
+                    val mergedTile = BoardItem(3 - merged.size, c, col[i].value * 2)
+                    merged.add(mergedTile)
+                    score += mergedTile.value
+
+                    col[i].moveTo(3 - merged.size + 1, c)
+                    col[i + 1].moveTo(3 - merged.size + 1, c)
+
+                    i += 2
+                } else {
+                    val newTile = BoardItem(3 - merged.size, c, col[i].value)
+                    merged.add(newTile)
+
+                    if (col[i].row != 3 - merged.size + 1) {
+                        col[i].moveTo(3 - merged.size + 1, c)
+                    }
+
+                    i++
+                }
+            }
+
+            for (r in 0..3) {
+                val newValue = if (3 - r < merged.size) merged[3 - r].value else 0
+                if (board[r][c].value != newValue) {
+                    madeChanges = true
+                }
+                board[r][c].value = newValue
+            }
+        }
+
+        return madeChanges
     }
 
     private fun checkGameOver(): Boolean {
@@ -127,6 +310,7 @@ class Model {
             return false
         }
 
+        // Check horizontal merges
         for (r in 0..3) {
             for (c in 0..2) {
                 if (board[r][c].value == board[r][c + 1].value) {
@@ -135,6 +319,7 @@ class Model {
             }
         }
 
+        // Check vertical merges
         for (r in 0..2) {
             for (c in 0..3) {
                 if (board[r][c].value == board[r + 1][c].value) {
@@ -146,195 +331,13 @@ class Model {
         return true
     }
 
-    private fun moveHorizontal(direction: MoveDirection): Boolean {
-        val indexChange = if (direction == MoveDirection.Left) -1 else +1
-        var everMadeChanges = false
-
-        val newBoard = BoardItem.genBoard(4, 4)
-
-        for (r in 0..3) {
-            for (c in 0..3) {
-                newBoard[r][c] = board[r][c]
-            }
-        }
-
-        for (r in 0..3) {
-            val iterator = if (indexChange > 0) (0..3).reversed() else (0..3)
-            val merged = BooleanArray(4) { false }
-
-            var madeSlideChanges: Boolean
-            do {
-                madeSlideChanges = false
-                var lastSeenFreeCol = iterator.first
-                var foundFreeCol = false
-
-                for (index in iterator) {
-                    if (newBoard[r][index].value == 0 && !foundFreeCol) {
-                        foundFreeCol = true
-                        lastSeenFreeCol = index
-                    }
-
-                    if (newBoard[r][index].value != 0 && foundFreeCol) {
-                        newBoard[r][lastSeenFreeCol] = newBoard[r][index]
-                        everMadeChanges = true
-                        madeSlideChanges = true
-                        foundFreeCol = false
-                    }
-                }
-            } while (madeSlideChanges)
-
-            for (index in iterator) {
-                val adjacentIndex = index - indexChange
-                if (index in 0..3 && adjacentIndex in 0..3 &&
-                    newBoard[r][index].value == newBoard[r][adjacentIndex].value &&
-                    newBoard[r][index].value != 0) {
-
-                    if (merged[index] || merged[adjacentIndex])
-                        continue
-
-                    newBoard[r][index].moveTo(r, adjacentIndex)
-                    newBoard[r][adjacentIndex].moveTo(r, adjacentIndex)
-
-                    newBoard[r][index] = BoardItem(r, index, 0)
-
-                    everMadeChanges = true
-                    merged[adjacentIndex] = true
-                    score += newBoard[r][adjacentIndex].value
-                }
-            }
-
-            do {
-                madeSlideChanges = false
-                var lastSeenFreeCol = iterator.first
-                var foundFreeCol = false
-
-                for (index in iterator) {
-                    if (newBoard[r][index].value == 0 && !foundFreeCol) {
-                        foundFreeCol = true
-                        lastSeenFreeCol = index
-                    }
-
-                    if (newBoard[r][index].value != 0 && foundFreeCol) {
-                        newBoard[r][lastSeenFreeCol] = newBoard[r][index]
-                        everMadeChanges = true
-                        madeSlideChanges = true
-                        foundFreeCol = false
-                    }
-                }
-            } while (madeSlideChanges)
-        }
-
-        for (r in 0..3) {
-            for (c in 0..3) {
-                if (newBoard[r][c].value != 0 &&
-                    (newBoard[r][c].row != newBoard[r][c].newRow ||
-                            newBoard[r][c].col != newBoard[r][c].newCol)) {
-                    newBoard[r][c].moveTo(r, c)
-                }
-            }
-        }
-
-        return everMadeChanges
-    }
-
-    private fun moveVertical(direction: MoveDirection): Boolean {
-        val indexChange = if (direction == MoveDirection.Up) -1 else +1
-        var everMadeChanges = false
-
-        val newBoard = BoardItem.genBoard(4, 4)
-
-        for (r in 0..3) {
-            for (c in 0..3) {
-                newBoard[r][c] = board[r][c]
-            }
-        }
-
-        for (c in 0..3) {
-            val iterator = if (indexChange > 0) (0..3).reversed() else (0..3)
-            val merged = BooleanArray(4) { false }
-
-            var madeSlideChanges: Boolean
-            do {
-                madeSlideChanges = false
-                var lastSeenFreeRow = iterator.first
-                var foundFreeRow = false
-
-                for (index in iterator) {
-                    if (newBoard[index][c].value == 0 && !foundFreeRow) {
-                        foundFreeRow = true
-                        lastSeenFreeRow = index
-                    }
-
-                    if (newBoard[index][c].value != 0 && foundFreeRow) {
-                        newBoard[lastSeenFreeRow][c] = newBoard[index][c]
-                        everMadeChanges = true
-                        madeSlideChanges = true
-                        foundFreeRow = false
-                    }
-                }
-            } while (madeSlideChanges)
-
-            for (index in iterator) {
-                val adjacentIndex = index - indexChange
-                if (index in 0..3 && adjacentIndex in 0..3 &&
-                    newBoard[index][c].value == newBoard[adjacentIndex][c].value &&
-                    newBoard[index][c].value != 0) {
-
-                    if (merged[index] || merged[adjacentIndex])
-                        continue
-
-                    newBoard[index][c].moveTo(adjacentIndex, c)
-                    newBoard[adjacentIndex][c].moveTo(adjacentIndex, c)
-
-                    newBoard[index][c] = BoardItem(index, c, 0)
-
-                    everMadeChanges = true
-                    merged[adjacentIndex] = true
-                    score += newBoard[adjacentIndex][c].value
-                }
-            }
-
-            do {
-                madeSlideChanges = false
-                var lastSeenFreeRow = iterator.first
-                var foundFreeRow = false
-
-                for (index in iterator) {
-                    if (newBoard[index][c].value == 0 && !foundFreeRow) {
-                        foundFreeRow = true
-                        lastSeenFreeRow = index
-                    }
-
-                    if (newBoard[index][c].value != 0 && foundFreeRow) {
-                        newBoard[lastSeenFreeRow][c] = newBoard[index][c]
-                        everMadeChanges = true
-                        madeSlideChanges = true
-                        foundFreeRow = false
-                    }
-                }
-            } while (madeSlideChanges)
-        }
-
-        for (r in 0..3) {
-            for (c in 0..3) {
-                if (newBoard[r][c].value != 0 &&
-                    (newBoard[r][c].row != newBoard[r][c].newRow ||
-                            newBoard[r][c].col != newBoard[r][c].newCol)) {
-                    newBoard[r][c].moveTo(r, c)
-                }
-            }
-        }
-
-        return everMadeChanges
-    }
-
-    private fun getEmptySlots(): MutableList<Pair<Int, Int>>{
-        val emptySlots: MutableList<Pair<Int, Int>> = mutableListOf();
+    private fun getEmptySlots(): MutableList<Pair<Int, Int>> {
+        val emptySlots: MutableList<Pair<Int, Int>> = mutableListOf()
 
         for (r in 0..3) {
             for (c in 0..3) {
                 if (board[r][c].value == 0) {
-                    emptySlots.add(Pair<Int, Int>(r, c))
+                    emptySlots.add(Pair(r, c))
                 }
             }
         }
@@ -343,11 +346,10 @@ class Model {
     }
 
     private fun placeNewTile(): Boolean {
-
         val emptySlots = getEmptySlots()
 
         if (emptySlots.isEmpty()) {
-            return false;
+            return false
         }
 
         val index = emptySlots.random()
@@ -360,39 +362,6 @@ class Model {
 
         newTiles.add(Pair(index.first, index.second))
 
-        return true;
-
+        return true
     }
-
-    private fun handleMovesAndMerges() {
-
-        val newBoard = BoardItem.genBoard(4, 4)
-
-        for (r in 0..3) {
-            for (c in 0..3) {
-
-                if (board[r][c].value == 0) continue
-
-                val targetRow = board[r][c].newRow
-                val targetCol = board[r][c].newCol
-
-                if (newBoard[targetRow][targetCol].value != 0) {
-                    newBoard[targetRow][targetCol].value *= 2
-                    continue
-                }
-
-                newBoard[targetRow][targetCol].value = board[r][c].value
-                newBoard[targetRow][targetCol].moving = false
-                newBoard[targetRow][targetCol].newRow = targetRow
-                newBoard[targetRow][targetCol].newCol = targetCol
-                newBoard[targetRow][targetCol].row = targetRow
-                newBoard[targetRow][targetCol].col = targetCol
-
-            }
-        }
-
-        board = newBoard
-
-    }
-
 }
