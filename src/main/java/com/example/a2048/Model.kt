@@ -106,8 +106,7 @@ class Model {
         animating = true
         Timer().schedule(Constants.Numerical.ANIMATION_TIME_DELAY) {
             animating = false
-            resetMovementState()
-
+            handleMovesAndMerges()
 
             if (madeChanges) {
 
@@ -151,12 +150,13 @@ class Model {
         val indexChange = if (direction == MoveDirection.Left) -1 else +1
         var everMadeChanges = false
 
-        val usedPositions = arrayOf(
-            BooleanArray(4) { false },
-            BooleanArray(4) { false },
-            BooleanArray(4) { false },
-            BooleanArray(4) { false },
-        )
+        val newBoard = BoardItem.genBoard(4, 4)
+
+        for (r in 0..3) {
+            for (c in 0..3) {
+                newBoard[r][c] = board[r][c]
+            }
+        }
 
         for (r in 0..3) {
             val iterator = if (indexChange > 0) (0..3).reversed() else (0..3)
@@ -165,23 +165,17 @@ class Model {
             var madeSlideChanges: Boolean
             do {
                 madeSlideChanges = false
-                var lastSeenFreeCol = if (direction == MoveDirection.Left) 0 else 3
+                var lastSeenFreeCol = iterator.first
                 var foundFreeCol = false
 
                 for (index in iterator) {
-                    if (board[r][index].value == 0 && !foundFreeCol) {
+                    if (newBoard[r][index].value == 0 && !foundFreeCol) {
                         foundFreeCol = true
                         lastSeenFreeCol = index
                     }
 
-                    if (board[r][index].value != 0 && foundFreeCol) {
-
-                        if (board[r][index].newCol == lastSeenFreeCol && board[r][index].newRow == r) continue
-                        if (usedPositions[r][index]) continue
-
-                        board[r][index].moveTo(r, lastSeenFreeCol)
-                        usedPositions[r][lastSeenFreeCol] = true
-                        usedPositions[r][index] = false
+                    if (newBoard[r][index].value != 0 && foundFreeCol) {
+                        newBoard[r][lastSeenFreeCol] = newBoard[r][index]
                         everMadeChanges = true
                         madeSlideChanges = true
                         foundFreeCol = false
@@ -190,47 +184,54 @@ class Model {
             } while (madeSlideChanges)
 
             for (index in iterator) {
-                val adjacentIndex = index + indexChange
+                val adjacentIndex = index - indexChange
                 if (index in 0..3 && adjacentIndex in 0..3 &&
-                    board[r][index].value == board[r][adjacentIndex].value &&
-                    board[r][index].value != 0) {
+                    newBoard[r][index].value == newBoard[r][adjacentIndex].value &&
+                    newBoard[r][index].value != 0) {
 
                     if (merged[index] || merged[adjacentIndex])
                         continue
 
-                    board[r][adjacentIndex].value = board[r][index].value * 2
-                    board[r][index].value = 0
+                    newBoard[r][index].moveTo(r, adjacentIndex)
+                    newBoard[r][adjacentIndex].moveTo(r, adjacentIndex)
+
+                    newBoard[r][index] = BoardItem(r, index, 0)
+
                     everMadeChanges = true
                     merged[adjacentIndex] = true
-                    score += board[r][adjacentIndex].value
+                    score += newBoard[r][adjacentIndex].value
                 }
             }
 
             do {
                 madeSlideChanges = false
-                var lastSeenFreeCol = if (direction == MoveDirection.Left) 0 else 3
+                var lastSeenFreeCol = iterator.first
                 var foundFreeCol = false
 
                 for (index in iterator) {
-                    if (board[r][index].value == 0 && !foundFreeCol) {
+                    if (newBoard[r][index].value == 0 && !foundFreeCol) {
                         foundFreeCol = true
                         lastSeenFreeCol = index
                     }
 
-                    if (board[r][index].value != 0 && foundFreeCol) {
-
-                        if (board[r][index].newCol == lastSeenFreeCol && board[r][index].newRow == r) continue
-                        if (usedPositions[r][index]) continue
-
-                        board[r][index].moveTo(r, lastSeenFreeCol)
-                        usedPositions[r][lastSeenFreeCol] = true
-                        usedPositions[r][index] = false
+                    if (newBoard[r][index].value != 0 && foundFreeCol) {
+                        newBoard[r][lastSeenFreeCol] = newBoard[r][index]
                         everMadeChanges = true
                         madeSlideChanges = true
                         foundFreeCol = false
                     }
                 }
             } while (madeSlideChanges)
+        }
+
+        for (r in 0..3) {
+            for (c in 0..3) {
+                if (newBoard[r][c].value != 0 &&
+                    (newBoard[r][c].row != newBoard[r][c].newRow ||
+                            newBoard[r][c].col != newBoard[r][c].newCol)) {
+                    newBoard[r][c].moveTo(r, c)
+                }
+            }
         }
 
         return everMadeChanges
@@ -240,12 +241,13 @@ class Model {
         val indexChange = if (direction == MoveDirection.Up) -1 else +1
         var everMadeChanges = false
 
-        val usedPositions = arrayOf(
-            BooleanArray(4) { false },
-            BooleanArray(4) { false },
-            BooleanArray(4) { false },
-            BooleanArray(4) { false },
-        )
+        val newBoard = BoardItem.genBoard(4, 4)
+
+        for (r in 0..3) {
+            for (c in 0..3) {
+                newBoard[r][c] = board[r][c]
+            }
+        }
 
         for (c in 0..3) {
             val iterator = if (indexChange > 0) (0..3).reversed() else (0..3)
@@ -254,23 +256,17 @@ class Model {
             var madeSlideChanges: Boolean
             do {
                 madeSlideChanges = false
-                var lastSeenFreeRow = if (direction == MoveDirection.Up) 0 else 3
+                var lastSeenFreeRow = iterator.first
                 var foundFreeRow = false
 
                 for (index in iterator) {
-                    if (board[index][c].value == 0 && !foundFreeRow) {
+                    if (newBoard[index][c].value == 0 && !foundFreeRow) {
                         foundFreeRow = true
                         lastSeenFreeRow = index
                     }
 
-                    if (board[index][c].value != 0 && foundFreeRow) {
-
-                        if (board[index][c].newCol == c && board[index][c].newRow == lastSeenFreeRow) continue
-                        if (usedPositions[lastSeenFreeRow][c]) continue
-
-                        board[index][c].moveTo(lastSeenFreeRow, c)
-                        usedPositions[lastSeenFreeRow][c] = true
-                        usedPositions[index][c] = false
+                    if (newBoard[index][c].value != 0 && foundFreeRow) {
+                        newBoard[lastSeenFreeRow][c] = newBoard[index][c]
                         everMadeChanges = true
                         madeSlideChanges = true
                         foundFreeRow = false
@@ -279,47 +275,54 @@ class Model {
             } while (madeSlideChanges)
 
             for (index in iterator) {
-                val adjacentIndex = index + indexChange
+                val adjacentIndex = index - indexChange
                 if (index in 0..3 && adjacentIndex in 0..3 &&
-                    board[index][c].value == board[adjacentIndex][c].value &&
-                    board[index][c].value != 0) {
+                    newBoard[index][c].value == newBoard[adjacentIndex][c].value &&
+                    newBoard[index][c].value != 0) {
 
                     if (merged[index] || merged[adjacentIndex])
                         continue
 
-                    board[adjacentIndex][c].value = board[index][c].value * 2
-                    board[index][c].value = 0
+                    newBoard[index][c].moveTo(adjacentIndex, c)
+                    newBoard[adjacentIndex][c].moveTo(adjacentIndex, c)
+
+                    newBoard[index][c] = BoardItem(index, c, 0)
+
                     everMadeChanges = true
                     merged[adjacentIndex] = true
-                    score += board[adjacentIndex][c].value
+                    score += newBoard[adjacentIndex][c].value
                 }
             }
 
             do {
                 madeSlideChanges = false
-                var lastSeenFreeRow = if (direction == MoveDirection.Up) 0 else 3
+                var lastSeenFreeRow = iterator.first
                 var foundFreeRow = false
 
                 for (index in iterator) {
-                    if (board[index][c].value == 0 && !foundFreeRow) {
+                    if (newBoard[index][c].value == 0 && !foundFreeRow) {
                         foundFreeRow = true
                         lastSeenFreeRow = index
                     }
 
-                    if (board[index][c].value != 0 && foundFreeRow) {
-
-                        if (board[index][c].newCol == c && board[index][c].newRow == lastSeenFreeRow) continue
-                        if (usedPositions[lastSeenFreeRow][c]) continue
-
-                        board[index][c].moveTo(lastSeenFreeRow, c)
-                        usedPositions[lastSeenFreeRow][c] = true
-                        usedPositions[index][c] = false
+                    if (newBoard[index][c].value != 0 && foundFreeRow) {
+                        newBoard[lastSeenFreeRow][c] = newBoard[index][c]
                         everMadeChanges = true
                         madeSlideChanges = true
                         foundFreeRow = false
                     }
                 }
             } while (madeSlideChanges)
+        }
+
+        for (r in 0..3) {
+            for (c in 0..3) {
+                if (newBoard[r][c].value != 0 &&
+                    (newBoard[r][c].row != newBoard[r][c].newRow ||
+                            newBoard[r][c].col != newBoard[r][c].newCol)) {
+                    newBoard[r][c].moveTo(r, c)
+                }
+            }
         }
 
         return everMadeChanges
@@ -361,23 +364,35 @@ class Model {
 
     }
 
-    private fun resetMovementState() {
+    private fun handleMovesAndMerges() {
+
         val newBoard = BoardItem.genBoard(4, 4)
 
         for (r in 0..3) {
             for (c in 0..3) {
-                if (board[r][c].value != 0) {
-                    val targetRow = board[r][c].newRow
-                    val targetCol = board[r][c].newCol
-                    newBoard[targetRow][targetCol].value = board[r][c].value
-                    newBoard[targetRow][targetCol].moving = false
-                    newBoard[targetRow][targetCol].newRow = targetRow
-                    newBoard[targetRow][targetCol].newCol = targetCol
+
+                if (board[r][c].value == 0) continue
+
+                val targetRow = board[r][c].newRow
+                val targetCol = board[r][c].newCol
+
+                if (newBoard[targetRow][targetCol].value != 0) {
+                    newBoard[targetRow][targetCol].value *= 2
+                    continue
                 }
+
+                newBoard[targetRow][targetCol].value = board[r][c].value
+                newBoard[targetRow][targetCol].moving = false
+                newBoard[targetRow][targetCol].newRow = targetRow
+                newBoard[targetRow][targetCol].newCol = targetCol
+                newBoard[targetRow][targetCol].row = targetRow
+                newBoard[targetRow][targetCol].col = targetCol
+
             }
         }
 
         board = newBoard
+
     }
 
 }
